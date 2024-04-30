@@ -25,66 +25,26 @@ SOFTWARE.
 package segment
 
 import (
+	"fmt"
 	"os"
+	"time"
 )
 
-type Segment struct {
-	id          uint64
-	file        *os.File
-	segmentSize int
-	size        int
-	buffer      []byte
-	firstIndex  uint64
+const (
+	FileName      string = "log"
+	FilePermition        = 0644
+	FileFlag             = os.O_CREATE | os.O_RDWR | os.O_APPEND
+)
+
+func makeFilePath(basePath string, id uint64) string {
+	return fmt.Sprintf("%s/%s_%d_%s", basePath, FileName, id, time.Now().String())
 }
 
-func NewSegment(basePath string, id, firstIndex uint64, segmentSize int) (*Segment, error) {
-	f, err := openFile(basePath, id)
+func openFile(basePath string, id uint64) (*os.File, error) {
+	path := makeFilePath(basePath, id)
+	file, err := os.OpenFile(path, FileFlag, FilePermition)
 	if err != nil {
 		return nil, err
 	}
-
-	return &Segment{
-		id:          id,
-		segmentSize: segmentSize,
-		size:        0,
-		file:        f,
-		buffer:      []byte{},
-		firstIndex:  firstIndex,
-	}, nil
-}
-
-func (s *Segment) Write(buf []byte, sync bool) (uint64, error) {
-	n, err := s.file.Write(buf)
-	if err != nil {
-		return 0, err
-
-	}
-	if sync {
-		if err := s.file.Sync(); err != nil {
-			return 0, err
-		}
-	}
-
-	s.size += n
-	return uint64(s.size), nil
-}
-
-func (s *Segment) Read(index uint64) {
-}
-
-func (s *Segment) Load() {
-}
-
-func (s *Segment) Commit() error {
-	return s.file.Sync()
-}
-
-func (s *Segment) Rollback() {
-}
-
-func (s *Segment) Close() error {
-	if err := s.file.Sync(); err != nil {
-		return err
-	}
-	return s.file.Close()
+	return file, nil
 }

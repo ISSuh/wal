@@ -1,8 +1,14 @@
 package file
 
 import (
-	"io/fs"
+	"fmt"
 	"os"
+	"time"
+)
+
+const (
+	FileName      string = "log"
+	FilePermition        = 0644
 )
 
 type File struct {
@@ -11,8 +17,9 @@ type File struct {
 	size    int
 }
 
-func NewFile(path string, mode fs.FileMode) (*File, error) {
-	rawFile, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, mode)
+func NewFile(basePath string, id uint64) (*File, error) {
+	path := makeFilePath(basePath, id)
+	rawFile, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, FilePermition)
 	if err != nil {
 		return nil, err
 	}
@@ -62,4 +69,8 @@ func (f *File) Close() error {
 		return err
 	}
 	return f.rawFile.Close()
+}
+
+func makeFilePath(basePath string, id uint64) string {
+	return fmt.Sprintf("%s/%s_%d_%s", basePath, FileName, id, time.Now().String())
 }
