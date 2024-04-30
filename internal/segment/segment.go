@@ -25,19 +25,70 @@ SOFTWARE.
 package segment
 
 import (
+	"encoding/binary"
+	"fmt"
 	"os"
 )
+
+const (
+	SegmentMetadataByteLen = 12
+	ByteSizeOfUint64       = 8
+)
+
+type segmentHeader struct {
+	metadataOffset int
+	metadataLen    int
+}
+
+type segmentMeta struct {
+	index  uint64
+	offset uint32
+}
+
+func (m *segmentMeta) encode() []byte {
+	buf := make([]byte, SegmentMetadataByteLen)
+	binary.BigEndian.PutUint64(buf, m.index)
+	binary.BigEndian.PutUint32(buf, uint32(m.offset))
+	return buf
+}
+
+func decodeSegmentMeta(buf []byte) segmentMeta {
+	index := binary.BigEndian.Uint64(buf[:ByteSizeOfUint64])
+	offset := binary.BigEndian.Uint32(buf[ByteSizeOfUint64:])
+	return segmentMeta{
+		index:  index,
+		offset: offset,
+	}
+}
+
+func loadSegmentMetadatas(buf []byte) ([]segmentMeta, error) {
+	if (len(buf) % SegmentMetadataByteLen) != 0 {
+		return nil, fmt.Errorf("invalid metadata buffer size")
+	}
+
+	metas := []segmentMeta{}
+	offset := 0
+	size := len(buf)
+	for offset < size {
+		b := buf[offset:SegmentMetadataByteLen]
+		m := decodeSegmentMeta(b)
+		metas = append(metas, m)
+
+		offset += SegmentMetadataByteLen
+	}
+	return metas, nil
+}
 
 type Segment struct {
 	id          uint64
 	file        *os.File
 	segmentSize int
-	size        int
+	offset      uint32
 	buffer      []byte
-	firstIndex  uint64
+	metadatas   []segmentMeta
 }
 
-func NewSegment(basePath string, id, firstIndex uint64, segmentSize int) (*Segment, error) {
+func NewSegment(basePath string, id uint64, segmentSize int) (*Segment, error) {
 	f, err := openFile(basePath, id)
 	if err != nil {
 		return nil, err
@@ -46,30 +97,39 @@ func NewSegment(basePath string, id, firstIndex uint64, segmentSize int) (*Segme
 	return &Segment{
 		id:          id,
 		segmentSize: segmentSize,
-		size:        0,
+		offset:      0,
 		file:        f,
 		buffer:      []byte{},
-		firstIndex:  firstIndex,
+		metadatas:   []segmentMeta{},
 	}, nil
 }
 
-func (s *Segment) Write(buf []byte, sync bool) (uint64, error) {
+func (s *Segment) Write(index uint64, buf []byte) error {
 	n, err := s.file.Write(buf)
 	if err != nil {
-		return 0, err
-
-	}
-	if sync {
-		if err := s.file.Sync(); err != nil {
-			return 0, err
-		}
+		return err
 	}
 
-	s.size += n
-	return uint64(s.size), nil
+	s.offset += uint32(n)
+	s.metadatas = append(s.metadatas, segmentMeta{index, s.offset})
+	return nil
 }
 
-func (s *Segment) Read(index uint64) {
+func (s *Segment) WriteWithSync(index uint64, buf []byte) error {
+	if err := s.Write(index, buf); err != nil {
+		return nil
+	}
+
+	if err := s.file.Sync(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *Segment) Read(index uint64) ([]byte, error) {
+	buf := []byte{}
+	_, err := s.file.Read(buf)
+	return buf, err
 }
 
 func (s *Segment) Load() {
