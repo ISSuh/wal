@@ -29,5 +29,4 @@ import (
 )
 
 func TestNewSegment(t *testing.T) {
-
 }

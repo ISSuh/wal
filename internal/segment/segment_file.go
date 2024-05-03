@@ -31,17 +31,31 @@ import (
 )
 
 const (
-	FileName      string = "log"
-	FilePermition        = 0644
-	FileFlag             = os.O_CREATE | os.O_RDWR | os.O_APPEND
+	LogFileName     string = "log"
+	LogMetaFileName string = "log_meta"
+	FilePermition          = 0o644
+	FileFlag               = os.O_CREATE | os.O_RDWR | os.O_APPEND
 )
 
-func makeFilePath(basePath string, id uint64) string {
-	return fmt.Sprintf("%s/%s_%d_%s", basePath, FileName, id, time.Now().String())
+func makeLogFilePath(basePath string, id uint64) string {
+	return fmt.Sprintf("%s/%s_%d_%s", basePath, LogFileName, id, time.Now().String())
 }
 
-func openFile(basePath string, id uint64) (*os.File, error) {
-	path := makeFilePath(basePath, id)
+func makeLogMetaFilePath(basePath string, id uint64) string {
+	return fmt.Sprintf("%s/%s_%d", basePath, LogMetaFileName, id)
+}
+
+func openLogFile(basePath string, id uint64) (*os.File, error) {
+	path := makeLogFilePath(basePath, id)
+	file, err := os.OpenFile(path, FileFlag, FilePermition)
+	if err != nil {
+		return nil, err
+	}
+	return file, nil
+}
+
+func openLogMetaFile(basePath string, id uint64) (*os.File, error) {
+	path := makeLogMetaFilePath(basePath, id)
 	file, err := os.OpenFile(path, FileFlag, FilePermition)
 	if err != nil {
 		return nil, err

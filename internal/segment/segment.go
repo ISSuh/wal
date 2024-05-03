@@ -81,7 +81,8 @@ func loadSegmentMetadatas(buf []byte) ([]segmentMeta, error) {
 
 type Segment struct {
 	id          uint64
-	file        *os.File
+	logFile     *os.File
+	logMetaFile *os.File
 	segmentSize int
 	offset      uint32
 	buffer      []byte
@@ -89,7 +90,12 @@ type Segment struct {
 }
 
 func NewSegment(basePath string, id uint64, segmentSize int) (*Segment, error) {
-	f, err := openFile(basePath, id)
+	logFile, err := openLogFile(basePath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	logMetaFile, err := openLogMetaFile(basePath, id)
 	if err != nil {
 		return nil, err
 	}
@@ -98,20 +104,30 @@ func NewSegment(basePath string, id uint64, segmentSize int) (*Segment, error) {
 		id:          id,
 		segmentSize: segmentSize,
 		offset:      0,
-		file:        f,
+		logFile:     logFile,
+		logMetaFile: logMetaFile,
 		buffer:      []byte{},
 		metadatas:   []segmentMeta{},
 	}, nil
 }
 
 func (s *Segment) Write(index uint64, buf []byte) error {
-	n, err := s.file.Write(buf)
+	n, err := s.logFile.Write(buf)
 	if err != nil {
 		return err
 	}
 
 	s.offset += uint32(n)
-	s.metadatas = append(s.metadatas, segmentMeta{index, s.offset})
+	meta := segmentMeta{
+		index:  index,
+		offset: s.offset,
+	}
+
+	s.metadatas = append(s.metadatas, meta)
+	_, err = s.logMetaFile.Write(meta.encode())
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -120,7 +136,7 @@ func (s *Segment) WriteWithSync(index uint64, buf []byte) error {
 		return nil
 	}
 
-	if err := s.file.Sync(); err != nil {
+	if err := s.logFile.Sync(); err != nil {
 		return err
 	}
 	return nil
@@ -128,7 +144,7 @@ func (s *Segment) WriteWithSync(index uint64, buf []byte) error {
 
 func (s *Segment) Read(index uint64) ([]byte, error) {
 	buf := []byte{}
-	_, err := s.file.Read(buf)
+	_, err := s.logFile.Read(buf)
 	return buf, err
 }
 
@@ -136,15 +152,28 @@ func (s *Segment) Load() {
 }
 
 func (s *Segment) Commit() error {
-	return s.file.Sync()
+	return s.logFile.Sync()
 }
 
 func (s *Segment) Rollback() {
 }
 
 func (s *Segment) Close() error {
-	if err := s.file.Sync(); err != nil {
+	if err := s.logFile.Sync(); err != nil {
 		return err
 	}
-	return s.file.Close()
+
+	if err := s.logMetaFile.Sync(); err != nil {
+		return err
+	}
+
+	if err := s.logFile.Close(); err != nil {
+		return nil
+	}
+
+	if err := s.logMetaFile.Close(); err != nil {
+		return nil
+	}
+
+	return nil
 }
