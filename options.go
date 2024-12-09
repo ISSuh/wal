@@ -22,17 +22,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-package segment
+package wal
 
-import "github.com/ISSuh/wal/internal/entry"
+type Options struct {
+	// BasePath is the directory to store the log files.
+	Path string
 
-const (
-	ByteSizeOfUint64 = 8
-)
-
-type Segment struct {
-	ID     uint64
-	Size   int
-	Offset int64
-	Buffer []entry.Log
+	// SegmentFileSize is the maximum size of a segment file.
+	SegmentFileSize int
 }

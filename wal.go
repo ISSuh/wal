@@ -24,12 +24,43 @@ SOFTWARE.
 
 package wal
 
-import "github.com/ISSuh/wal/internal/segment"
+import (
+	"github.com/ISSuh/wal/internal/index"
+	"github.com/ISSuh/wal/internal/metadata"
+)
 
-type Log struct {
-	segments []*segment.Segment
+type Storage interface {
+	Write(data []byte) (uint64, error)
+	Read(index uint64) ([]byte, error)
+	Close() error
+	Commit() error
 }
 
-func NewLog() (*Log, error) {
+type storage struct {
+	options Options
+
+	indexFile    *index.File
+	metadataFile *metadata.File
+}
+
+func NewStorage(option Options) (Storage, error) {
+	return &storage{
+		options: option,
+	}, nil
+}
+
+func (s *storage) Write(data []byte) (uint64, error) {
+	return 0, nil
+}
+
+func (s *storage) Read(index uint64) ([]byte, error) {
 	return nil, nil
+}
+
+func (s *storage) Close() error {
+	return nil
+}
+
+func (s *storage) Commit() error {
+	return nil
 }

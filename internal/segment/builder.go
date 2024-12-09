@@ -1,4 +1,4 @@
-/*
+﻿/*
 MIT License
 
 Copyright (c) 2024 ISSuh
@@ -22,6 +22,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-package wal
+package segment
 
-type Config struct{}
+type Builder struct {
+	segmentFileSize int
+}
+
+func NewBuilder(segmentFileSize int) *Builder {
+	return &Builder{
+		segmentFileSize: segmentFileSize,
+	}
+}

@@ -26,40 +26,36 @@ package entry
 
 import "encoding/binary"
 
+const (
+	logHeaderByteSize = 8
+)
+
 type Log struct {
-	CRC      uint32
-	Size     uint16
-	Sequence uint32
-	Type     uint8
+	Size     int
+	Sequence int
 	PayLoad  []byte
 }
 
-func Encode(log *Log) []byte {
-	buf := []byte{}
-	buf = binary.LittleEndian.AppendUint32(buf, log.CRC)
-	buf = binary.LittleEndian.AppendUint16(buf, log.Size)
-	buf = binary.LittleEndian.AppendUint32(buf, log.Sequence)
-	buf = append(buf, log.Type)
+func EncodeLog(log Log) []byte {
+	buf := make([]byte, logHeaderByteSize)
+	binary.BigEndian.PutUint32(buf, uint32(log.Size))
+	binary.BigEndian.PutUint32(buf, uint32(log.Size))
 	buf = append(buf, log.PayLoad...)
 	return buf
 }
 
-func Decode(buf []byte) (*Log, error) {
-	l := &Log{}
+func DecodeLog(data []byte) (Log, error) {
+	if len(data) < logHeaderByteSize {
+		return Log{}, nil
+	}
 
-	index := 0
-	l.CRC = binary.LittleEndian.Uint32(buf)
-	index += 4
+	size := binary.BigEndian.Uint32(data[:4])
+	sequence := binary.BigEndian.Uint32(data[4:8])
+	payload := data[8:]
 
-	l.Size = binary.LittleEndian.Uint16(buf[index:])
-	index += 2
-
-	l.Sequence = binary.LittleEndian.Uint32(buf[index:])
-	index += 4
-
-	l.Type = buf[index]
-	index += 1
-
-	copy(l.PayLoad, buf[index:])
-	return l, nil
+	return Log{
+		Size:     int(size),
+		Sequence: int(sequence),
+		PayLoad:  payload,
+	}, nil
 }

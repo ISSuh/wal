@@ -1,4 +1,4 @@
-/*
+﻿/*
 MIT License
 
 Copyright (c) 2024 ISSuh
@@ -24,15 +24,44 @@ SOFTWARE.
 
 package segment
 
-import "github.com/ISSuh/wal/internal/entry"
-
-const (
-	ByteSizeOfUint64 = 8
+import (
+	"encoding/binary"
+	"fmt"
 )
 
-type Segment struct {
-	ID     uint64
-	Size   int
-	Offset int64
-	Buffer []entry.Log
+const (
+	MetadataByteLen = 20
+)
+
+type Metadata struct {
+	Size    int
+	Index   int
+	OIffset int64
+	CRC     uint32
+}
+
+func EncodeSegmentMetadata(m Metadata) []byte {
+	buf := make([]byte, MetadataByteLen)
+	binary.BigEndian.PutUint64(buf, uint64(m.Size))
+	binary.BigEndian.PutUint32(buf[8:], uint32(m.Index))
+	binary.BigEndian.PutUint64(buf[16:], uint64(m.OIffset))
+	binary.BigEndian.PutUint32(buf[24:], m.CRC)
+	return buf
+}
+
+func DecodeSegmentMetadata(buf []byte) (Metadata, error) {
+	if len(buf) != MetadataByteLen {
+		return Metadata{}, fmt.Errorf("invalid segment metadata size. %d", len(buf))
+	}
+
+	size := int(binary.BigEndian.Uint64(buf[:8]))
+	index := int(binary.BigEndian.Uint64(buf[8:16]))
+	offset := int64(binary.BigEndian.Uint64(buf[16:24]))
+	crc := binary.BigEndian.Uint32(buf[24:])
+	return Metadata{
+		Size:    size,
+		Index:   index,
+		OIffset: offset,
+		CRC:     crc,
+	}, nil
 }

@@ -1,4 +1,4 @@
-/*
+﻿/*
 MIT License
 
 Copyright (c) 2024 ISSuh
@@ -22,17 +22,4 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-package segment
-
-import "github.com/ISSuh/wal/internal/entry"
-
-const (
-	ByteSizeOfUint64 = 8
-)
-
-type Segment struct {
-	ID     uint64
-	Size   int
-	Offset int64
-	Buffer []entry.Log
-}
+package metadata

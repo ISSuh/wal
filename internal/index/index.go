@@ -1,4 +1,4 @@
-/*
+﻿/*
 MIT License
 
 Copyright (c) 2024 ISSuh
@@ -22,17 +22,39 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-package segment
+package index
 
-import "github.com/ISSuh/wal/internal/entry"
-
-const (
-	ByteSizeOfUint64 = 8
+import (
+	"encoding/binary"
+	"fmt"
 )
 
-type Segment struct {
-	ID     uint64
-	Size   int
-	Offset int64
-	Buffer []entry.Log
+const (
+	indexSize = 20
+)
+
+type Index struct {
+	Index          uint64
+	MetadataOffset int64
+	MetadataSize   int
+}
+
+func EncodeIndex(i Index) []byte {
+	buf := make([]byte, indexSize)
+	binary.LittleEndian.PutUint64(buf, uint64(i.Index))
+	binary.LittleEndian.PutUint64(buf[8:], uint64(i.MetadataOffset))
+	binary.LittleEndian.PutUint32(buf[16:], uint32(i.MetadataSize))
+	return buf
+}
+
+func DecodeIndex(data []byte) (Index, error) {
+	if len(data) != indexSize {
+		return Index{}, fmt.Errorf("invalid index size. %d", len(data))
+	}
+
+	i := Index{}
+	i.Index = binary.LittleEndian.Uint64(data[:8])
+	i.MetadataOffset = int64(binary.LittleEndian.Uint64(data[8:16]))
+	i.MetadataSize = int(binary.LittleEndian.Uint32(data[16:20]))
+	return i, nil
 }

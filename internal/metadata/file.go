@@ -1,4 +1,4 @@
-/*
+﻿/*
 MIT License
 
 Copyright (c) 2024 ISSuh
@@ -22,43 +22,69 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-package segment
+package metadata
 
 import (
 	"fmt"
-	"os"
-	"time"
+
+	"github.com/ISSuh/wal/internal/file"
 )
 
 const (
-	LogFileName     string = "log"
-	LogMetaFileName string = "log_meta"
-	FilePermition          = 0o644
-	FileFlag               = os.O_CREATE | os.O_RDWR | os.O_APPEND
+	metadataFileName = "metadata"
 )
 
-func makeLogFilePath(basePath string, id uint64) string {
-	return fmt.Sprintf("%s/%s_%d_%s", basePath, LogFileName, id, time.Now().String())
+type File struct {
+	file.File
+	basePath string
 }
 
-func makeLogMetaFilePath(basePath string, id uint64) string {
-	return fmt.Sprintf("%s/%s_%d", basePath, LogMetaFileName, id)
-}
-
-func openLogFile(basePath string, id uint64) (*os.File, error) {
-	path := makeLogFilePath(basePath, id)
-	file, err := os.OpenFile(path, FileFlag, FilePermition)
-	if err != nil {
-		return nil, err
+func NewFile(basePath string) *File {
+	return &File{
+		File:     file.NewFile(),
+		basePath: basePath,
 	}
-	return file, nil
 }
 
-func openLogMetaFile(basePath string, id uint64) (*os.File, error) {
-	path := makeLogMetaFilePath(basePath, id)
-	file, err := os.OpenFile(path, FileFlag, FilePermition)
+func (f *File) Open() error {
+	filePath := fmt.Sprintf("%s/%s", f.basePath, metadataFileName)
+	err := f.File.Open(filePath)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return file, nil
+	return nil
+}
+
+func (f *File) Close() error {
+	if f.File != nil {
+		return f.File.Close()
+	}
+	return nil
+}
+
+func (f *File) Write(metadata Data) error {
+	buf := EncodeMetadata(metadata)
+	if err := f.File.Write(buf); err != nil {
+		return fmt.Errorf("failed to write metadata. %w", err)
+	}
+
+	if err := f.File.Sync(); err != nil {
+		return fmt.Errorf("failed to sync metadata. %w", err)
+	}
+
+	return nil
+}
+
+func (f *File) Read(offset int64, len int) (Data, error) {
+	data, err := f.File.ReadAt(offset, len)
+	if err != nil {
+		return Data{}, fmt.Errorf("failed to read metadata. %w", err)
+	}
+
+	metadata, err := DecodeMetadata(data)
+	if err != nil {
+		return Data{}, fmt.Errorf("failed to decode metadata. %w", err)
+	}
+
+	return metadata, nil
 }
