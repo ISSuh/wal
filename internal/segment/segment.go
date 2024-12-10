@@ -31,8 +31,9 @@ const (
 )
 
 type Segment struct {
-	ID     uint64
-	Size   int
-	Offset int64
-	Buffer []entry.Log
+	ID         uint64
+	Size       int
+	FirstIndex int64
+	Offset     int64
+	Buffer     []entry.Log
 }

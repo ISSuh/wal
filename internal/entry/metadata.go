@@ -22,49 +22,46 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-package segment
+package entry
 
 import (
-	"github.com/ISSuh/wal/internal/crc"
-	"github.com/ISSuh/wal/internal/entry"
-	"github.com/ISSuh/wal/internal/metadata"
+	"encoding/binary"
+	"fmt"
 )
 
-type Builder struct {
-	segmentFileSize int
-	index           int
-	offset          int64
-	metadata        []metadata.Data
-	logs            []entry.Log
+const (
+	MetadataByteLen = 20
+)
+
+type Metadata struct {
+	Size   int
+	Index  int
+	Offset int64
+	CRC    uint32
 }
 
-func NewBuilder(segmentFileSize int) *Builder {
-	return &Builder{
-		segmentFileSize: segmentFileSize,
-		offset:          0,
-		metadata:        make([]metadata.Data, 0),
-		logs:            make([]entry.Log, 0),
-	}
+func EncodeLogMetadata(m Metadata) []byte {
+	buf := make([]byte, MetadataByteLen)
+	binary.BigEndian.PutUint64(buf, uint64(m.Size))
+	binary.BigEndian.PutUint32(buf[8:], uint32(m.Index))
+	binary.BigEndian.PutUint64(buf[16:], uint64(m.Offset))
+	binary.BigEndian.PutUint32(buf[24:], m.CRC)
+	return buf
 }
 
-func (b *Builder) Append(index int64, log entry.Log) error {
-	buf := entry.EncodeLog(log)
-	crc := crc.Encode(buf)
-
-	metadata := metadata.Data{
-		Size:  len(buf),
-		Index: index,
+func DecodeLogMetadata(buf []byte) (Metadata, error) {
+	if len(buf) != MetadataByteLen {
+		return Metadata{}, fmt.Errorf("invalid segment metadata size. %d", len(buf))
 	}
 
-	b.logs = append(b.logs, log)
-	return nil
-}
-
-func (b *Builder) Build() ([]byte, error) {
-	var data []byte
-	for _, log := range b.logs {
-		data = append(data, entry.EncodeLog(log)...)
-	}
-
-	return data, nil
+	size := int(binary.BigEndian.Uint64(buf[:8]))
+	index := int(binary.BigEndian.Uint64(buf[8:16]))
+	offset := int64(binary.BigEndian.Uint64(buf[16:24]))
+	crc := binary.BigEndian.Uint32(buf[24:])
+	return Metadata{
+		Size:   size,
+		Index:  index,
+		Offset: offset,
+		CRC:    crc,
+	}, nil
 }

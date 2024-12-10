@@ -28,6 +28,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
+	"github.com/ISSuh/wal/internal/entry"
 	"github.com/ISSuh/wal/internal/segment"
 )
 
@@ -38,14 +39,14 @@ const (
 type Data struct {
 	Size     int
 	Index    int64
-	metadata []segment.Metadata
+	metadata entry.Metadata
 }
 
 func newMetadata(size int, index int64) Data {
 	return Data{
 		Size:     size,
 		Index:    index,
-		metadata: make([]segment.Metadata, size),
+		metadata: make([]entry.Metadata, size),
 	}
 }
 
@@ -55,7 +56,7 @@ func EncodeMetadata(m Data) []byte {
 	binary.BigEndian.PutUint64(buf[8:], uint64(m.Index))
 
 	for _, v := range m.metadata {
-		buf = append(buf, segment.EncodeSegmentMetadata(v)...)
+		buf = append(buf, entry.EncodeLogMetadata(v)...)
 	}
 	return buf
 }
@@ -71,7 +72,7 @@ func DecodeMetadata(data []byte) (Data, error) {
 	m := Data{
 		Size:     size,
 		Index:    index,
-		metadata: make([]segment.Metadata, 0),
+		metadata: make([]entry.Metadata, 0),
 	}
 
 	segmentMetadataLen := (size - metadataHeaderByteSize) / segment.MetadataByteLen
@@ -79,13 +80,13 @@ func DecodeMetadata(data []byte) (Data, error) {
 		beginOffset := metadataHeaderByteSize + (i * segment.MetadataByteLen)
 		endOffset := beginOffset + segment.MetadataByteLen
 
-		encodedSegmentMetadata := data[beginOffset:endOffset]
-		segmentMetadata, err := segment.DecodeSegmentMetadata(encodedSegmentMetadata)
+		encodedLogMetadata := data[beginOffset:endOffset]
+		logMetadata, err := entry.DecodeLogMetadata(encodedLogMetadata)
 		if err != nil {
 			return Data{}, fmt.Errorf("failed to decode metadata. %w", err)
 		}
 
-		m.metadata = append(m.metadata, segmentMetadata)
+		m.metadata = append(m.metadata, logMetadata)
 	}
 
 	return m, nil

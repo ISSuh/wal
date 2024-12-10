@@ -22,49 +22,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-package segment
+package crc
 
-import (
-	"github.com/ISSuh/wal/internal/crc"
-	"github.com/ISSuh/wal/internal/entry"
-	"github.com/ISSuh/wal/internal/metadata"
-)
+import "hash/crc32"
 
-type Builder struct {
-	segmentFileSize int
-	index           int
-	offset          int64
-	metadata        []metadata.Data
-	logs            []entry.Log
+func Encode(data []byte) uint32 {
+	return crc32.Checksum(data, crc32.IEEETable)
 }
 
-func NewBuilder(segmentFileSize int) *Builder {
-	return &Builder{
-		segmentFileSize: segmentFileSize,
-		offset:          0,
-		metadata:        make([]metadata.Data, 0),
-		logs:            make([]entry.Log, 0),
-	}
-}
-
-func (b *Builder) Append(index int64, log entry.Log) error {
-	buf := entry.EncodeLog(log)
-	crc := crc.Encode(buf)
-
-	metadata := metadata.Data{
-		Size:  len(buf),
-		Index: index,
-	}
-
-	b.logs = append(b.logs, log)
-	return nil
-}
-
-func (b *Builder) Build() ([]byte, error) {
-	var data []byte
-	for _, log := range b.logs {
-		data = append(data, entry.EncodeLog(log)...)
-	}
-
-	return data, nil
+func IsMatch(data []byte, crc uint32) bool {
+	return crc == Encode(data)
 }
