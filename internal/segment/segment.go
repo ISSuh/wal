@@ -31,9 +31,36 @@ const (
 )
 
 type Segment struct {
-	ID         uint64
-	Size       int
-	FirstIndex int64
-	Offset     int64
-	Buffer     []entry.Log
+	file       *File
+	id         uint64
+	size       int
+	firstIndex uint64
+	offset     int64
+	buffer     []entry.Log
+}
+
+func NewSegment(id uint64) *Segment {
+	return &Segment{
+		id:         id,
+		size:       0,
+		firstIndex: 0,
+		offset:     0,
+		buffer:     make([]entry.Log, 0),
+	}
+}
+
+func (s *Segment) Append(e entry.Log) (entry.Metadata, error) {
+	return entry.Metadata{}, nil
+}
+
+func (s *Segment) Size() int {
+	return s.size
+}
+
+func (s *Segment) FirstIndex() uint64 {
+	return s.firstIndex
+}
+
+func (s *Segment) Offset() int64 {
+	return s.offset
 }

@@ -36,7 +36,8 @@ const (
 
 type File struct {
 	file.File
-	basePath string
+	basePath  string
+	lastIndex uint64
 }
 
 func NewFile(basePath string) *File {
@@ -73,6 +74,7 @@ func (f *File) Write(i Index) error {
 		return fmt.Errorf("failed to sync index file. %w", err)
 	}
 
+	f.lastIndex++
 	return nil
 }
 
@@ -89,4 +91,8 @@ func (f *File) Read(i int64) (Index, error) {
 	}
 
 	return index, nil
+}
+
+func (f *File) LastIndex() uint64 {
+	return f.lastIndex
 }

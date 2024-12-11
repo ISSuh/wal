@@ -31,15 +31,20 @@ const (
 )
 
 type Log struct {
-	Size     int
 	Sequence int
 	PayLoad  []byte
 }
 
+func NewLog(size int, sequence int, payload []byte) Log {
+	return Log{
+		Sequence: sequence,
+		PayLoad:  payload,
+	}
+}
+
 func EncodeLog(log Log) []byte {
 	buf := make([]byte, logHeaderByteSize)
-	binary.BigEndian.PutUint32(buf, uint32(log.Size))
-	binary.BigEndian.PutUint32(buf, uint32(log.Size))
+	binary.BigEndian.PutUint32(buf, uint32(log.Sequence))
 	buf = append(buf, log.PayLoad...)
 	return buf
 }
@@ -49,12 +54,10 @@ func DecodeLog(data []byte) (Log, error) {
 		return Log{}, nil
 	}
 
-	size := binary.BigEndian.Uint32(data[:4])
-	sequence := binary.BigEndian.Uint32(data[4:8])
+	sequence := binary.BigEndian.Uint32(data[0:4])
 	payload := data[8:]
 
 	return Log{
-		Size:     int(size),
 		Sequence: int(sequence),
 		PayLoad:  payload,
 	}, nil

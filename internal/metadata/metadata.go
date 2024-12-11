@@ -38,15 +38,15 @@ const (
 
 type Data struct {
 	Size     int
-	Index    int64
-	metadata entry.Metadata
+	Index    uint64
+	Metadata []entry.Metadata
 }
 
-func newMetadata(size int, index int64) Data {
+func newMetadata(size int, index uint64) Data {
 	return Data{
 		Size:     size,
 		Index:    index,
-		metadata: make([]entry.Metadata, size),
+		Metadata: make([]entry.Metadata, size),
 	}
 }
 
@@ -55,7 +55,7 @@ func EncodeMetadata(m Data) []byte {
 	binary.BigEndian.PutUint32(buf, uint32(m.Size))
 	binary.BigEndian.PutUint64(buf[8:], uint64(m.Index))
 
-	for _, v := range m.metadata {
+	for _, v := range m.Metadata {
 		buf = append(buf, entry.EncodeLogMetadata(v)...)
 	}
 	return buf
@@ -67,12 +67,12 @@ func DecodeMetadata(data []byte) (Data, error) {
 	}
 
 	size := int(binary.BigEndian.Uint32(data[:4]))
-	index := int64(binary.BigEndian.Uint64(data[4:12]))
+	index := binary.BigEndian.Uint64(data[4:12])
 
 	m := Data{
 		Size:     size,
 		Index:    index,
-		metadata: make([]entry.Metadata, 0),
+		Metadata: make([]entry.Metadata, 0),
 	}
 
 	segmentMetadataLen := (size - metadataHeaderByteSize) / segment.MetadataByteLen
@@ -86,7 +86,7 @@ func DecodeMetadata(data []byte) (Data, error) {
 			return Data{}, fmt.Errorf("failed to decode metadata. %w", err)
 		}
 
-		m.metadata = append(m.metadata, logMetadata)
+		m.Metadata = append(m.Metadata, logMetadata)
 	}
 
 	return m, nil
