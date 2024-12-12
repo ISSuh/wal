@@ -1,111 +1,53 @@
-﻿/*
-MIT License
-
-Copyright (c) 2024 ISSuh
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-*/
-
-package index
+﻿package index
 
 import (
-	"encoding/binary"
+	"encoding/hex"
 	"testing"
 )
 
-func TestEncodeIndex(t *testing.T) {
-	tests := []struct {
-		name string
-		i    Index
-		want []byte
-	}{
-		{
-			name: "valid index",
-			i:    Index{Index: 1, MetadataOffset: 2, MetadataSize: 3},
-			want: func() []byte {
-				buf := make([]byte, indexSize)
-				binary.LittleEndian.PutUint64(buf, 1)
-				binary.LittleEndian.PutUint64(buf[8:], 2)
-				binary.LittleEndian.PutUint32(buf[16:], 3)
-				return buf
-			}(),
-		},
+func TestNewIndex(t *testing.T) {
+	index := NewIndex(1, 100, 200)
+	if index.Index != 1 {
+		t.Errorf("expected Index to be 1, got %d", index.Index)
 	}
+	if index.MetadataOffset != 100 {
+		t.Errorf("expected MetadataOffset to be 100, got %d", index.MetadataOffset)
+	}
+	if index.MetadataSize != 200 {
+		t.Errorf("expected MetadataSize to be 200, got %d", index.MetadataSize)
+	}
+}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := EncodeIndex(tt.i); !equal(got, tt.want) {
-				t.Errorf("EncodeIndex() = %v, want %v", got, tt.want)
-			}
-		})
+func TestEncodeIndex(t *testing.T) {
+	index := NewIndex(1, 100, 200)
+	encoded := EncodeIndex(index)
+	expected := "01000000000000006400000000000000c8000000"
+	if hex.EncodeToString(encoded) != expected {
+		t.Errorf("expected %s, got %s", expected, hex.EncodeToString(encoded))
 	}
 }
 
 func TestDecodeIndex(t *testing.T) {
-	tests := []struct {
-		name    string
-		data    []byte
-		want    Index
-		wantErr bool
-	}{
-		{
-			name: "valid index",
-			data: func() []byte {
-				buf := make([]byte, indexSize)
-				binary.LittleEndian.PutUint64(buf, 1)
-				binary.LittleEndian.PutUint64(buf[8:], 2)
-				binary.LittleEndian.PutUint32(buf[16:], 3)
-				return buf
-			}(),
-			want:    Index{Index: 1, MetadataOffset: 2, MetadataSize: 3},
-			wantErr: false,
-		},
-		{
-			name:    "invalid index size",
-			data:    []byte{1, 2, 3},
-			want:    Index{},
-			wantErr: true,
-		},
+	data, _ := hex.DecodeString("01000000000000006400000000000000c8000000")
+	index, err := DecodeIndex(data)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := DecodeIndex(tt.data)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("DecodeIndex() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if got != tt.want {
-				t.Errorf("DecodeIndex() = %v, want %v", got, tt.want)
-			}
-		})
+	if index.Index != 1 {
+		t.Errorf("expected Index to be 1, got %d", index.Index)
+	}
+	if index.MetadataOffset != 100 {
+		t.Errorf("expected MetadataOffset to be 100, got %d", index.MetadataOffset)
+	}
+	if index.MetadataSize != 200 {
+		t.Errorf("expected MetadataSize to be 200, got %d", index.MetadataSize)
 	}
 }
 
-func equal(a, b []byte) bool {
-	if len(a) != len(b) {
-		return false
+func TestDecodeIndex_InvalidSize(t *testing.T) {
+	data := []byte{0x01, 0x02}
+	_, err := DecodeIndex(data)
+	if err == nil {
+		t.Errorf("expected error, got nil")
 	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
 }

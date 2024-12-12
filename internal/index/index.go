@@ -34,9 +34,17 @@ const (
 )
 
 type Index struct {
-	Index          uint64
+	Index          int64
 	MetadataOffset int64
 	MetadataSize   int
+}
+
+func NewIndex(index int64, metadataOffset int64, metadataSize int) Index {
+	return Index{
+		Index:          index,
+		MetadataOffset: metadataOffset,
+		MetadataSize:   metadataSize,
+	}
 }
 
 func EncodeIndex(i Index) []byte {
@@ -53,7 +61,7 @@ func DecodeIndex(data []byte) (Index, error) {
 	}
 
 	i := Index{}
-	i.Index = binary.LittleEndian.Uint64(data[:8])
+	i.Index = int64(binary.LittleEndian.Uint64(data[:8]))
 	i.MetadataOffset = int64(binary.LittleEndian.Uint64(data[8:16]))
 	i.MetadataSize = int(binary.LittleEndian.Uint32(data[16:20]))
 	return i, nil

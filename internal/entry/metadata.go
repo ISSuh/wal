@@ -30,38 +30,42 @@ import (
 )
 
 const (
-	MetadataByteLen = 20
+	MetadataByteLen = 24
 )
 
-type Metadata struct {
-	Size   int
-	Index  int
-	Offset int64
-	CRC    uint32
+type LogMetadata struct {
+	SegmentID int
+	Size      int
+	Sequence  int
+	CRC       uint32
+	Offset    int64
 }
 
-func EncodeLogMetadata(m Metadata) []byte {
+func EncodeLogMetadata(m LogMetadata) []byte {
 	buf := make([]byte, MetadataByteLen)
-	binary.BigEndian.PutUint64(buf, uint64(m.Size))
-	binary.BigEndian.PutUint32(buf[8:], uint32(m.Index))
+	binary.BigEndian.PutUint32(buf[:4], uint32(m.SegmentID))
+	binary.BigEndian.PutUint32(buf[4:8], uint32(m.Size))
+	binary.BigEndian.PutUint32(buf[8:12], uint32(m.Sequence))
+	binary.BigEndian.PutUint32(buf[12:16], m.CRC)
 	binary.BigEndian.PutUint64(buf[16:], uint64(m.Offset))
-	binary.BigEndian.PutUint32(buf[24:], m.CRC)
 	return buf
 }
 
-func DecodeLogMetadata(buf []byte) (Metadata, error) {
+func DecodeLogMetadata(buf []byte) (LogMetadata, error) {
 	if len(buf) != MetadataByteLen {
-		return Metadata{}, fmt.Errorf("invalid segment metadata size. %d", len(buf))
+		return LogMetadata{}, fmt.Errorf("invalid segment metadata size. %d", len(buf))
 	}
 
-	size := int(binary.BigEndian.Uint64(buf[:8]))
-	index := int(binary.BigEndian.Uint64(buf[8:16]))
-	offset := int64(binary.BigEndian.Uint64(buf[16:24]))
-	crc := binary.BigEndian.Uint32(buf[24:])
-	return Metadata{
-		Size:   size,
-		Index:  index,
-		Offset: offset,
-		CRC:    crc,
+	segmentID := int(binary.BigEndian.Uint32(buf[:4]))
+	size := int(binary.BigEndian.Uint32(buf[4:8]))
+	sequence := int(binary.BigEndian.Uint32(buf[8:12]))
+	crc := binary.BigEndian.Uint32(buf[12:16])
+	offset := int64(binary.BigEndian.Uint64(buf[16:]))
+	return LogMetadata{
+		SegmentID: segmentID,
+		Size:      size,
+		Sequence:  sequence,
+		Offset:    offset,
+		CRC:       crc,
 	}, nil
 }

@@ -24,41 +24,29 @@ SOFTWARE.
 
 package entry
 
-import "encoding/binary"
-
-const (
-	logHeaderByteSize = 8
-)
-
 type Log struct {
+	Index    int64
 	Sequence int
 	PayLoad  []byte
 }
 
-func NewLog(size int, sequence int, payload []byte) Log {
+func NewLog(index int64, sequence int, payload []byte) Log {
 	return Log{
+		Index:    index,
 		Sequence: sequence,
 		PayLoad:  payload,
 	}
 }
 
 func EncodeLog(log Log) []byte {
-	buf := make([]byte, logHeaderByteSize)
-	binary.BigEndian.PutUint32(buf, uint32(log.Sequence))
+	buf := make([]byte, 0)
 	buf = append(buf, log.PayLoad...)
 	return buf
 }
 
 func DecodeLog(data []byte) (Log, error) {
-	if len(data) < logHeaderByteSize {
-		return Log{}, nil
-	}
-
-	sequence := binary.BigEndian.Uint32(data[0:4])
-	payload := data[8:]
-
+	payload := data
 	return Log{
-		Sequence: int(sequence),
-		PayLoad:  payload,
+		PayLoad: payload,
 	}, nil
 }

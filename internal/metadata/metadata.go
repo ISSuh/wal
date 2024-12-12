@@ -29,7 +29,6 @@ import (
 	"fmt"
 
 	"github.com/ISSuh/wal/internal/entry"
-	"github.com/ISSuh/wal/internal/segment"
 )
 
 const (
@@ -37,25 +36,25 @@ const (
 )
 
 type Data struct {
-	Size     int
-	Index    uint64
-	Metadata []entry.Metadata
+	Size        int
+	Index       int64
+	LogMetadata []entry.LogMetadata
 }
 
-func newMetadata(size int, index uint64) Data {
+func NewMetadata(index int64, m []entry.LogMetadata) Data {
 	return Data{
-		Size:     size,
-		Index:    index,
-		Metadata: make([]entry.Metadata, size),
+		Size:        metadataHeaderByteSize + (len(m) * entry.MetadataByteLen),
+		Index:       index,
+		LogMetadata: m,
 	}
 }
 
 func EncodeMetadata(m Data) []byte {
 	buf := make([]byte, metadataHeaderByteSize)
-	binary.BigEndian.PutUint32(buf, uint32(m.Size))
-	binary.BigEndian.PutUint64(buf[8:], uint64(m.Index))
+	binary.BigEndian.PutUint32(buf[0:4], uint32(m.Size))
+	binary.BigEndian.PutUint64(buf[4:12], uint64(m.Index))
 
-	for _, v := range m.Metadata {
+	for _, v := range m.LogMetadata {
 		buf = append(buf, entry.EncodeLogMetadata(v)...)
 	}
 	return buf
@@ -67,18 +66,18 @@ func DecodeMetadata(data []byte) (Data, error) {
 	}
 
 	size := int(binary.BigEndian.Uint32(data[:4]))
-	index := binary.BigEndian.Uint64(data[4:12])
+	index := int64(binary.BigEndian.Uint64(data[4:12]))
 
 	m := Data{
-		Size:     size,
-		Index:    index,
-		Metadata: make([]entry.Metadata, 0),
+		Size:        size,
+		Index:       index,
+		LogMetadata: make([]entry.LogMetadata, 0),
 	}
 
-	segmentMetadataLen := (size - metadataHeaderByteSize) / segment.MetadataByteLen
+	segmentMetadataLen := (size - metadataHeaderByteSize) / entry.MetadataByteLen
 	for i := 0; i < segmentMetadataLen; i++ {
-		beginOffset := metadataHeaderByteSize + (i * segment.MetadataByteLen)
-		endOffset := beginOffset + segment.MetadataByteLen
+		beginOffset := metadataHeaderByteSize + (i * entry.MetadataByteLen)
+		endOffset := beginOffset + entry.MetadataByteLen
 
 		encodedLogMetadata := data[beginOffset:endOffset]
 		logMetadata, err := entry.DecodeLogMetadata(encodedLogMetadata)
@@ -86,7 +85,7 @@ func DecodeMetadata(data []byte) (Data, error) {
 			return Data{}, fmt.Errorf("failed to decode metadata. %w", err)
 		}
 
-		m.Metadata = append(m.Metadata, logMetadata)
+		m.LogMetadata = append(m.LogMetadata, logMetadata)
 	}
 
 	return m, nil

@@ -37,6 +37,9 @@ const (
 type File struct {
 	file.File
 	basePath string
+
+	offset       int64
+	lastMetadata Data
 }
 
 func NewFile(basePath string) *File {
@@ -62,17 +65,20 @@ func (f *File) Close() error {
 	return nil
 }
 
-func (f *File) Write(metadata Data) error {
+func (f *File) Write(metadata Data) (int64, error) {
+	itemOffset := f.offset
 	buf := EncodeMetadata(metadata)
 	if err := f.File.Write(buf); err != nil {
-		return fmt.Errorf("failed to write metadata. %w", err)
+		return 0, fmt.Errorf("failed to write metadata. %w", err)
 	}
 
 	if err := f.File.Sync(); err != nil {
-		return fmt.Errorf("failed to sync metadata. %w", err)
+		return 0, fmt.Errorf("failed to sync metadata. %w", err)
 	}
 
-	return nil
+	f.offset += int64(len(buf))
+	f.lastMetadata = metadata
+	return itemOffset, nil
 }
 
 func (f *File) Read(offset int64, len int) (Data, error) {
@@ -87,4 +93,26 @@ func (f *File) Read(offset int64, len int) (Data, error) {
 	}
 
 	return metadata, nil
+}
+
+func (f *File) LastOffset() int64 {
+	return f.offset
+}
+
+func (f *File) Rollback() error {
+	size, err := f.File.Size()
+	if err != nil {
+		return fmt.Errorf("failed to get file size. %w", err)
+	}
+
+	if size < int64(f.lastMetadata.Size) {
+		return nil
+	}
+
+	targetSize := size - int64(f.lastMetadata.Size)
+	if err := f.File.Truncate(targetSize); err != nil {
+		return fmt.Errorf("failed to truncate metadata file. %w", err)
+	}
+
+	return nil
 }

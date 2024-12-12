@@ -36,8 +36,10 @@ const (
 
 type File struct {
 	file.File
-	basePath  string
-	lastIndex uint64
+	basePath string
+
+	lastIndex Index
+	size      int
 }
 
 func NewFile(basePath string) *File {
@@ -74,7 +76,8 @@ func (f *File) Write(i Index) error {
 		return fmt.Errorf("failed to sync index file. %w", err)
 	}
 
-	f.lastIndex++
+	f.lastIndex = i
+	f.size = len(buf)
 	return nil
 }
 
@@ -93,6 +96,19 @@ func (f *File) Read(i int64) (Index, error) {
 	return index, nil
 }
 
-func (f *File) LastIndex() uint64 {
-	return f.lastIndex
+func (f *File) LastIndex() int64 {
+	return f.lastIndex.Index
+}
+
+func (f *File) Rollback() error {
+	if f.size < indexSize {
+		return nil
+	}
+
+	targetSize := int64(f.size - indexSize)
+	if err := f.File.Truncate(targetSize); err != nil {
+		return fmt.Errorf("failed to truncate index file. %w", err)
+	}
+
+	return nil
 }

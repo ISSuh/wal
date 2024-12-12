@@ -26,7 +26,53 @@ package segment
 
 import (
 	"testing"
+
+	"github.com/ISSuh/wal/internal/entry"
 )
 
 func TestNewSegment(t *testing.T) {
+	// Add test logic for NewSegment function
+	segment, err := NewSegment(1, "/tmp")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if segment.ID() != 1 {
+		t.Errorf("expected segment ID to be 1, got %d", segment.ID())
+	}
+}
+
+func TestSegment_Append(t *testing.T) {
+	// Add test logic for Segment.Append function
+	segment, _ := NewSegment(1, "/tmp")
+	log := entry.Log{Sequence: 1, PayLoad: []byte("test")}
+	metadata, err := segment.Append(log)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if metadata.Sequence != log.Sequence {
+		t.Errorf("expected sequence to be %d, got %d", log.Sequence, metadata.Sequence)
+	}
+}
+
+func TestSegment_Read(t *testing.T) {
+	// Add test logic for Segment.Read function
+	segment, _ := NewSegment(1, "/tmp")
+	log := entry.Log{Sequence: 1, PayLoad: []byte("test")}
+	segment.Append(log)
+	readLog, err := segment.Read(0, len(log.PayLoad))
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if string(readLog.PayLoad) != "test" {
+		t.Errorf("expected payload to be 'test', got %s", string(readLog.PayLoad))
+	}
+}
+
+func TestSegment_Close(t *testing.T) {
+	// Add test logic for Segment.Close function
+	segment, _ := NewSegment(1, "/tmp")
+	err := segment.Close()
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
 }

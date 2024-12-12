@@ -24,43 +24,120 @@ SOFTWARE.
 
 package segment
 
-import "github.com/ISSuh/wal/internal/entry"
+import (
+	"fmt"
+
+	"github.com/ISSuh/wal/internal/crc"
+	"github.com/ISSuh/wal/internal/entry"
+	"github.com/ISSuh/wal/internal/file"
+)
 
 const (
-	ByteSizeOfUint64 = 8
+	segmentFilePrefix = "segment"
 )
 
 type Segment struct {
-	file       *File
-	id         uint64
+	id         int
 	size       int
-	firstIndex uint64
+	firstIndex int64
 	offset     int64
+	lastIndex  int64
 	buffer     []entry.Log
+
+	file     file.File
+	basePath string
 }
 
-func NewSegment(id uint64) *Segment {
-	return &Segment{
+func NewSegment(id int, basePath string) (*Segment, error) {
+	s := &Segment{
 		id:         id,
 		size:       0,
 		firstIndex: 0,
 		offset:     0,
+		lastIndex:  0,
 		buffer:     make([]entry.Log, 0),
+		file:       file.NewFile(),
+		basePath:   basePath,
 	}
+
+	if err := s.open(id); err != nil {
+		return nil, err
+	}
+
+	return s, nil
 }
 
-func (s *Segment) Append(e entry.Log) (entry.Metadata, error) {
-	return entry.Metadata{}, nil
+func (s *Segment) Append(e entry.Log) (entry.LogMetadata, error) {
+	if err := s.write(e); err != nil {
+		return entry.LogMetadata{}, err
+	}
+
+	crc := crc.Encode(e.PayLoad)
+	m := entry.LogMetadata{
+		Size:     len(e.PayLoad),
+		Sequence: e.Sequence,
+		Offset:   s.offset,
+		CRC:      crc,
+	}
+	return m, nil
+}
+
+func (s *Segment) Read(offset int64, len int) (entry.Log, error) {
+	data, err := s.file.ReadAt(offset, len)
+	if err != nil {
+		return entry.Log{}, fmt.Errorf("failed to read segment file. %w", err)
+	}
+
+	log, err := entry.DecodeLog(data)
+	if err != nil {
+		return entry.Log{}, fmt.Errorf("failed to decode segment file. %w", err)
+	}
+
+	return log, nil
+}
+
+func (s *Segment) ID() int {
+	return s.id
 }
 
 func (s *Segment) Size() int {
 	return s.size
 }
 
-func (s *Segment) FirstIndex() uint64 {
+func (s *Segment) FirstIndex() int64 {
 	return s.firstIndex
 }
 
 func (s *Segment) Offset() int64 {
 	return s.offset
+}
+
+func (s *Segment) Close() error {
+	if s.file != nil {
+		if err := s.file.Close(); err != nil {
+			return fmt.Errorf("failed to close segment file. %w", err)
+		}
+	}
+	return nil
+}
+
+func (s *Segment) open(id int) error {
+	filewithPath := fmt.Sprintf("%s/%s_%d", s.basePath, segmentFilePrefix, id)
+	if err := s.file.Open(filewithPath); err != nil {
+		return fmt.Errorf("failed to open segment file. %w", err)
+	}
+	return nil
+}
+
+func (s *Segment) write(log entry.Log) error {
+	data := entry.EncodeLog(log)
+	if err := s.file.Write(data); err != nil {
+		return fmt.Errorf("failed to write segment file. %w", err)
+	}
+
+	if err := s.file.Sync(); err != nil {
+		return fmt.Errorf("failed to write segment file. %w", err)
+	}
+
+	return nil
 }
