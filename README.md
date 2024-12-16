@@ -1,11 +1,11 @@
 # wal
 
-The `wal` (Write-Ahead Logging) project aims to provide an efficient log management system. This system ensures high performance and reliability by using a write-ahead logging mechanism.
+The `wal` (Write-Ahead Logging) project aims to provide an efficient log management system.
+This system ensures high reliability by using a write-ahead logging mechanism.
 
 ## Features
 - Disk based
 - Append only write
-- 
 
 ## Format
 
