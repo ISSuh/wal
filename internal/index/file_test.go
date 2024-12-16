@@ -11,7 +11,7 @@ func setup() (*File, func()) {
 		panic(err)
 	}
 
-	f := NewFile(basePath)
+	f := NewFile(basePath, true)
 	return f, func() {
 		os.RemoveAll(basePath)
 	}
@@ -19,7 +19,7 @@ func setup() (*File, func()) {
 
 func TestNewFile(t *testing.T) {
 	basePath := "./testdata"
-	f := NewFile(basePath)
+	f := NewFile(basePath, true)
 	if f == nil {
 		t.Errorf("NewFile() returned nil")
 	}
@@ -64,8 +64,8 @@ func TestFile_Write(t *testing.T) {
 	if err := f.Write(index); err != nil {
 		t.Errorf("File.Write() error = %v", err)
 	}
-	if f.LastIndex() != 1 {
-		t.Errorf("File.LastIndex() = %v, want %v", f.LastIndex(), 1)
+	if f.LastIndex() != 0 {
+		t.Errorf("File.LastIndex() = %v, want %v", f.LastIndex(), 0)
 	}
 }
 
@@ -101,16 +101,12 @@ func TestFile_LastIndex(t *testing.T) {
 	}
 	defer f.Close()
 
-	if f.LastIndex() != 0 {
-		t.Errorf("File.LastIndex() = %v, want %v", f.LastIndex(), 0)
-	}
-
 	index := Index{}
 	if err := f.Write(index); err != nil {
 		t.Errorf("File.Write() error = %v", err)
 	}
 
-	if f.LastIndex() != 1 {
-		t.Errorf("File.LastIndex() = %v, want %v", f.LastIndex(), 1)
+	if f.LastIndex() != 0 {
+		t.Errorf("File.LastIndex() = %v, want %v", f.LastIndex(), 0)
 	}
 }

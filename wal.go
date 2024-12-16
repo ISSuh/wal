@@ -47,6 +47,7 @@ const (
 type Storage interface {
 	Write(data []byte) (int64, error)
 	Read(index int64) ([]byte, error)
+	Sync() error
 	Close() error
 }
 
@@ -62,12 +63,18 @@ type storage struct {
 }
 
 func NewStorage(option Options) (Storage, error) {
-	indexFile := index.NewFile(option.Path)
+	if option.Path == "" {
+		return nil, errors.New("path is required")
+	}
+
+	option.setDefaultIfEmpty()
+
+	indexFile := index.NewFile(option.Path, option.SyncAfterWrite)
 	if err := indexFile.Open(); err != nil {
 		return nil, fmt.Errorf("failed to open index file. %w", err)
 	}
 
-	metadataFile := metadata.NewFile(option.Path)
+	metadataFile := metadata.NewFile(option.Path, option.SyncAfterWrite)
 	if err := metadataFile.Open(); err != nil {
 		return nil, fmt.Errorf("failed to open metadata file. %w", err)
 	}
@@ -153,6 +160,25 @@ func (s *storage) Read(i int64) ([]byte, error) {
 	return data, nil
 }
 
+func (s *storage) Sync() error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	if err := s.segment.Sync(); err != nil {
+		return fmt.Errorf("failed to sync segment. %w", err)
+	}
+
+	if err := s.indexFile.Sync(); err != nil {
+		return fmt.Errorf("failed to sync index file. %w", err)
+	}
+
+	if err := s.metadataFile.Sync(); err != nil {
+		return fmt.Errorf("failed to sync metadata file. %w", err)
+	}
+
+	return nil
+}
+
 // closes storage
 func (s *storage) Close() error {
 	if err := s.segment.Close(); err != nil {
@@ -190,18 +216,19 @@ func (s *storage) calculateOffsetFromData(len int) (int, bool) {
 
 // appendLogToSegment appends log to segment
 func (s *storage) appendLogToSegment(newIndex int64, data []byte) ([]entry.LogMetadata, error) {
-	offset := 0
+	prevIndex, index := 0, 0
 	dataSize := len(data)
 	remainedDataSize := dataSize
 	sequence := 0
 	segmentMetadata := make([]entry.LogMetadata, 0)
-	for offset <= dataSize {
+	for index < dataSize {
 		// calculate offset of data
-		needNewSegmentAfterAppend := false
-		offset, needNewSegmentAfterAppend = s.calculateOffsetFromData(remainedDataSize)
+		offset, needNewSegmentAfterAppend := s.calculateOffsetFromData(remainedDataSize)
+		prevIndex = index
+		index += offset
 
 		// create log
-		partaialData := data[0:offset]
+		partaialData := data[prevIndex:index]
 		log := entry.NewLog(newIndex, sequence, partaialData)
 
 		// append log to segment
@@ -223,8 +250,8 @@ func (s *storage) appendLogToSegment(newIndex int64, data []byte) ([]entry.LogMe
 			s.segment = segment
 		}
 
+		remainedDataSize = len(data[index:])
 		segmentMetadata = append(segmentMetadata, m)
-		remainedDataSize = len(data[offset:])
 		sequence++
 	}
 

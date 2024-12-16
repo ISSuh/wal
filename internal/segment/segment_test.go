@@ -58,7 +58,11 @@ func TestSegment_Read(t *testing.T) {
 	// Add test logic for Segment.Read function
 	segment, _ := NewSegment(1, "/tmp")
 	log := entry.Log{Sequence: 1, PayLoad: []byte("test")}
-	segment.Append(log)
+	_, err := segment.Append(log)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
 	readLog, err := segment.Read(0, len(log.PayLoad))
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)

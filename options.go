@@ -24,10 +24,29 @@ SOFTWARE.
 
 package wal
 
+const (
+	kb = 1024
+	mb = kb * 1024
+	gb = mb * 1024
+)
+
+const (
+	defaultSegmentFileSize = 1 * gb
+)
+
 type Options struct {
 	// BasePath is the directory to store the log files.
 	Path string
 
 	// SegmentFileSize is the maximum size of a segment file.
 	SegmentFileSize int
+
+	// Sync is a flag to enable/disable fsync when append log on the segment file.
+	SyncAfterWrite bool
+}
+
+func (o *Options) setDefaultIfEmpty() {
+	if o.SegmentFileSize == 0 {
+		o.SegmentFileSize = defaultSegmentFileSize
+	}
 }

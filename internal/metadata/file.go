@@ -36,16 +36,18 @@ const (
 
 type File struct {
 	file.File
-	basePath string
+	basePath       string
+	syncAfterWrite bool
 
 	offset       int64
 	lastMetadata Data
 }
 
-func NewFile(basePath string) *File {
+func NewFile(basePath string, syncAfterWrite bool) *File {
 	return &File{
-		File:     file.NewFile(),
-		basePath: basePath,
+		File:           file.NewFile(),
+		basePath:       basePath,
+		syncAfterWrite: syncAfterWrite,
 	}
 }
 
@@ -72,8 +74,10 @@ func (f *File) Write(metadata Data) (int64, error) {
 		return 0, fmt.Errorf("failed to write metadata. %w", err)
 	}
 
-	if err := f.File.Sync(); err != nil {
-		return 0, fmt.Errorf("failed to sync metadata. %w", err)
+	if f.syncAfterWrite {
+		if err := f.File.Sync(); err != nil {
+			return 0, fmt.Errorf("failed to sync metadata. %w", err)
+		}
 	}
 
 	f.offset += int64(len(buf))

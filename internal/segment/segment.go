@@ -37,12 +37,10 @@ const (
 )
 
 type Segment struct {
-	id         int
-	size       int
-	firstIndex int64
-	offset     int64
-	lastIndex  int64
-	buffer     []entry.Log
+	id        int
+	size      int
+	offset    int64
+	lastIndex int64
 
 	file     file.File
 	basePath string
@@ -50,14 +48,12 @@ type Segment struct {
 
 func NewSegment(id int, basePath string) (*Segment, error) {
 	s := &Segment{
-		id:         id,
-		size:       0,
-		firstIndex: 0,
-		offset:     0,
-		lastIndex:  0,
-		buffer:     make([]entry.Log, 0),
-		file:       file.NewFile(),
-		basePath:   basePath,
+		id:        id,
+		size:      0,
+		offset:    0,
+		lastIndex: 0,
+		file:      file.NewFile(),
+		basePath:  basePath,
 	}
 
 	if err := s.open(id); err != nil {
@@ -74,11 +70,15 @@ func (s *Segment) Append(e entry.Log) (entry.LogMetadata, error) {
 
 	crc := crc.Encode(e.PayLoad)
 	m := entry.LogMetadata{
-		Size:     len(e.PayLoad),
-		Sequence: e.Sequence,
-		Offset:   s.offset,
-		CRC:      crc,
+		SegmentID: s.id,
+		Size:      len(e.PayLoad),
+		Sequence:  e.Sequence,
+		Offset:    s.offset,
+		CRC:       crc,
 	}
+
+	s.offset += int64(m.Size)
+	s.size += m.Size
 	return m, nil
 }
 
@@ -104,10 +104,6 @@ func (s *Segment) Size() int {
 	return s.size
 }
 
-func (s *Segment) FirstIndex() int64 {
-	return s.firstIndex
-}
-
 func (s *Segment) Offset() int64 {
 	return s.offset
 }
@@ -117,6 +113,13 @@ func (s *Segment) Close() error {
 		if err := s.file.Close(); err != nil {
 			return fmt.Errorf("failed to close segment file. %w", err)
 		}
+	}
+	return nil
+}
+
+func (s *Segment) Sync() error {
+	if err := s.file.Sync(); err != nil {
+		return fmt.Errorf("failed to sync segment file. %w", err)
 	}
 	return nil
 }

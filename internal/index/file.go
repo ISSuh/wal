@@ -36,16 +36,21 @@ const (
 
 type File struct {
 	file.File
-	basePath string
+	basePath       string
+	syncAfterWrite bool
 
 	lastIndex Index
 	size      int
 }
 
-func NewFile(basePath string) *File {
+func NewFile(basePath string, syncAfterWrite bool) *File {
 	return &File{
-		File:     file.NewFile(),
-		basePath: basePath,
+		File:           file.NewFile(),
+		basePath:       basePath,
+		syncAfterWrite: syncAfterWrite,
+		lastIndex: Index{
+			Index: -1,
+		},
 	}
 }
 
@@ -72,8 +77,10 @@ func (f *File) Write(i Index) error {
 		return fmt.Errorf("failed to write index. %w", err)
 	}
 
-	if err := f.File.Sync(); err != nil {
-		return fmt.Errorf("failed to sync index file. %w", err)
+	if f.syncAfterWrite {
+		if err := f.File.Sync(); err != nil {
+			return fmt.Errorf("failed to sync index file. %w", err)
+		}
 	}
 
 	f.lastIndex = i
